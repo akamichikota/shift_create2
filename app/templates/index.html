@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shift Scheduler</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/styles.css">
+    <script src="/static/js/modal.js" defer></script>
+    <script src="/static/js/form.js" defer></script>
+    <script src="/static/js/calendar.js" defer></script>
+    <script src="/static/js/shift.js" defer></script>
+    <script src="/static/js/employee.js" defer></script>
+    <script src="/static/js/utils.js" defer></script>
+</head>
+<body>
+    <h1>シフト作成ツール</h1>
+
+    <h2>新しい従業員の登録</h2>
+    <form id="employee-form" method="POST">
+        <label for="employee_name">名前:</label>
+        <input type="text" id="employee_name" name="name" required>
+        <br>
+        <label for="weekly_shifts">希望シフト日数:</label>
+        <input type="number" id="weekly_shifts" name="weekly_shifts" required>
+        <br>
+        <input type="submit" value="従業員を登録">
+    </form>
+
+    <h2>従業員情報まとめ表</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>名前</th>
+                    <th>希望シフト日数</th>
+                    {% for day in range(1, 15) %}
+                        <th>8/{{ day }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in employees %}
+                    <tr id="employee-{{ employee.id }}">
+                        <td>{{ employee.name }}</td>
+                        <td>{{ employee.weekly_shifts }}</td>
+                        {% for day in range(1, 15) %}
+                            <td>
+                                {% for shift in employee.shift_requests %}
+                                    {% set shift_year = shift.date.strftime('%Y') %}
+                                    {% set date_str = shift_year ~ "-08-" ~ "%02d" | format(day) %}
+                                    <!-- デバッグ用ログ出力 -->
+                                    <div style="display: none;">
+                                        <p>デバッグ: date_str = {{ date_str }}</p>
+                                        <p>デバッグ: shift.date = {{ shift.date.strftime('%Y-%m-%d') }}</p>
+                                    </div>
+                                    {% if shift.date.strftime('%Y-%m-%d') == date_str %}
+                                        {{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }}
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h2>現在の従業員</h2>
+    <ul id="employee-list">
+        {% for employee in employees %}
+            <li id="employee-{{ employee.id }}">
+                {{ employee.name }} (週{{ employee.weekly_shifts }}シフト希望)
+                <button onclick="openShiftRequestModal('{{ employee.id }}')">シフト希望追加</button>
+                <button class="delete-button" onclick="deleteEmployee('{{ employee.id }}')">削除</button>
+                <button onclick="openEditEmployeeModal('{{ employee.id }}', '{{ employee.name }}', '{{ employee.weekly_shifts }}')">編集</button>
+                <ul>
+                    {% for shift in employee.shift_requests %}
+                        <li id="shift-request-{{ shift.id }}">
+                            {{ shift.date }} {{ shift.start_time }} - {{ shift.end_time }}
+                            <button class="delete-button" onclick="deleteShiftRequest('{{ shift.id }}')">削除</button>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <div id="message"></div>
+
+    <!-- シフト希望追加モーダル -->
+    <div id="shiftRequestModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeShiftRequestModal()">&times;</span>
+            <h2>シフト希望の追加</h2>
+            <div id="calendar-container"></div>
+            <form id="shift-request-form">
+                <input type="hidden" id="modal_employee_id" name="employee_id">
+                <div id="selected-dates"></div>
+                <input type="submit" value="シフト希望を追加">
+            </form>
+        </div>
+    </div>
+
+    <!-- 時間選択モーダル -->
+    <div id="timeSelectModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeTimeSelectModal()">&times;</span>
+            <h2>時間を選択</h2>
+            <div id="time-options">
+                <div>
+                    <h3>開始時間</h3>
+                    <div id="start-time-options"></div>
+                </div>
+                <div>
+                    <h3>終了時間</h3>
+                    <div id="end-time-options"></div>
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <button onclick="addShiftRequest()">追加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 従業員編集モーダル -->
+    <div id="editEmployeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditEmployeeModal()">&times;</span>
+            <h2>従業員情報の編集</h2>
+            <form id="edit-employee-form">
+                <input type="hidden" id="edit_employee_id" name="employee_id">
+                <label for="edit_employee_name">名前:</label>
+                <input type="text" id="edit_employee_name" name="name" required>
+                <br>
+                <label for="edit_weekly_shifts">希望シフト日数:</label>
+                <input type="number" id="edit_weekly_shifts" name="weekly_shifts" required>
+                <br>
+                <input type="submit" value="更新">
+            </form>
+        </div>
+    </div>
+</body>
+</html>
