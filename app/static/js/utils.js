@@ -5,7 +5,7 @@ function loadTimeOptions() {
     startTimeOptions.innerHTML = '';
     endTimeOptions.innerHTML = '';
 
-    const times = ['17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '00:00', '01:00'];
+    const times = ['15:00','16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
 
     times.forEach(time => {
         const startTimeOption = document.createElement('button');

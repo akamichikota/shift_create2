@@ -28,8 +28,8 @@ function openTimeSelectModal(date) {
     loadTimeOptions();
 
     // 初期状態で開始時間と終了時間を選択
-    const startTimeButton = document.querySelector('#start-time-options button[data-time="17:00"]');
-    const endTimeButton = document.querySelector('#end-time-options button[data-time="01:00"]');
+    const startTimeButton = document.querySelector('#start-time-options button[data-time="15:00"]');
+    const endTimeButton = document.querySelector('#end-time-options button[data-time="23:00"]');
     if (startTimeButton) startTimeButton.classList.add('selected');
     if (endTimeButton) endTimeButton.classList.add('selected');
 }
