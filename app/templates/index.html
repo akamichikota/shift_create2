@@ -1,16 +1,5 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Shift Scheduler</title>
-    <link rel="stylesheet" type="text/css" href="/static/css/styles.css">
-    <script src="/static/js/modal.js" defer></script>
-    <script src="/static/js/form.js" defer></script>
-    <script src="/static/js/calendar.js" defer></script>
-    <script src="/static/js/shift.js" defer></script>
-    <script src="/static/js/employee.js" defer></script>
-    <script src="/static/js/utils.js" defer></script>
-</head>
-<body>
+{% extends "header.html" %}
+{% block content %}
     <h1>シフト作成ツール</h1>
 
     <h2>新しい従業員の登録</h2>
@@ -137,5 +126,4 @@
             </form>
         </div>
     </div>
-</body>
-</html>
+{% endblock %}

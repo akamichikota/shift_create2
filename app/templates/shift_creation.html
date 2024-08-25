@@ -1,0 +1,76 @@
+{% extends "header.html" %}
+{% block content %}
+    <h1>シフト作成ページ</h1>
+
+    <h2>従業員情報まとめ表</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>名前</th>
+                    <th>希望シフト日数</th>
+                    {% for day in range(1, 15) %}
+                        <th>8/{{ day }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in employees %}
+                    <tr id="employee-{{ employee.id }}">
+                        <td>{{ employee.name }}</td>
+                        <td>{{ employee.weekly_shifts }}</td>
+                        {% for day in range(1, 15) %}
+                            <td>
+                                {% for shift in employee.shift_requests %}
+                                    {% set shift_year = shift.date.strftime('%Y') %}
+                                    {% set date_str = shift_year ~ "-08-" ~ "%02d" | format(day) %}
+                                    {% if shift.date.strftime('%Y-%m-%d') == date_str %}
+                                        {{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }}
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="text-align: center; margin: 20px 0;">
+        <form method="post" action="/create_shifts">
+            <button type="submit" style="padding: 10px 20px; font-size: 16px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">シフトを自動作成</button>
+        </form>
+    </div>
+
+    <h2>シフト作成結果</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>名前</th>
+                    <th>希望シフト日数</th>
+                    {% for day in range(1, 15) %}
+                        <th>8/{{ day }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in employees %}
+                    <tr>
+                        <td>{{ employee.name }}</td>
+                        <td>{{ employee.weekly_shifts }}</td>
+                        {% for day in range(1, 15) %}
+                            <td>
+                                {% for shift in shifts %}
+                                    {% if shift.employee.id == employee.id and shift.date.strftime('%Y-%m-%d') == "2024-08-" ~ "%02d" | format(day) %}
+                                        {{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }}
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

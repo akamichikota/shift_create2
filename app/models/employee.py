@@ -10,3 +10,4 @@ class Employee(Base):
     weekly_shifts = Column(Integer)
 
     shift_requests = relationship("ShiftRequest", back_populates="employee")
+    shifts = relationship("Shift", back_populates="employee")

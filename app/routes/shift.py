@@ -3,8 +3,12 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from ..models.shift import ShiftRequest
 from ..models import get_db
+from ..models.employee import Employee
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 router = APIRouter()
+templates = Jinja2Templates(directory="app/templates")
 
 @router.post("/add-shift-request")
 async def add_shift_request(
@@ -39,3 +43,9 @@ async def delete_shift_request(shift_request_id: int, db: Session = Depends(get_
     db.delete(shift_request)
     db.commit()
     return {"message": "シフト希望が削除されました"}
+
+@router.get("/shift-creation", response_class=HTMLResponse)
+async def shift_creation_page(request: Request, db: Session = Depends(get_db)):
+    employees = db.query(Employee).all()
+    return templates.TemplateResponse("shift_creation.html", {"request": request, "employees": employees})
+

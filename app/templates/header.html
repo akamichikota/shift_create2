@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/styles.css">
+    <script src="/static/js/modal.js" defer></script>
+    <script src="/static/js/form.js" defer></script>
+    <script src="/static/js/calendar.js" defer></script>
+    <script src="/static/js/shift.js" defer></script>
+    <script src="/static/js/employee.js" defer></script>
+    <script src="/static/js/utils.js" defer></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/">ホーム</a></li>
+                <li><a href="/shift-creation">シフト作成</a></li>
+                <!-- 他のページへのリンクを追加 -->
+            </ul>
+        </nav>
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
