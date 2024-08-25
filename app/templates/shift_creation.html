@@ -105,10 +105,21 @@
                     <tr>
                         <td>{{ "%02d:00" | format(hour) }} - {{ "%02d:00" | format((hour + 1) % 24) }}</td>
                         {% for day in range(1, 15) %}
-                            {% set a_shift = shifts|selectattr("date", "equalto", "2024-08-" ~ "%02d"|format(day))|selectattr("start_time", "le", time(hour, 0))|selectattr("end_time", "gt", time(hour, 0))|selectattr("shift_type", "equalto", "A")|first %}
-                            {% set b_shift = shifts|selectattr("date", "equalto", "2024-08-" ~ "%02d"|format(day))|selectattr("start_time", "le", time(hour, 0))|selectattr("end_time", "gt", time(hour, 0))|selectattr("shift_type", "equalto", "B")|first %}
-                            <td>{{ a_shift.employee.name if a_shift }}</td>
-                            <td>{{ b_shift.employee.name if b_shift }}</td>
+                            {% set date_str = "2024-08-" ~ "%02d" | format(day) %}
+                            <td>
+                                {% for shift in shifts %}
+                                    {% if shift.date.strftime('%Y-%m-%d') == date_str and shift.shift_type == 'A' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
+                                        {{ shift.employee.name }}<br>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for shift in shifts %}
+                                    {% if shift.date.strftime('%Y-%m-%d') == date_str and shift.shift_type == 'B' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
+                                        {{ shift.employee.name }}<br>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
                         {% endfor %}
                     </tr>
                 {% endfor %}

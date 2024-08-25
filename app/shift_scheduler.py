@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from .models.employee import Employee
 from .models.shift import Shift
 from datetime import datetime, timedelta, time
+import random  # 追加
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +21,7 @@ def assign_shifts(shift_type, shift_start_time, shift_end_time, current_date, av
 
         if request:
             # 1. request.start_time が current_shift_start の場合
-            if request.start_time == current_shift_start:
+            if request.start_time == current_shift_start and (current_shift_end == shift_end_time or request.end_time >= current_shift_end):
                 # ここに処理を追加
                 start_datetime = datetime.combine(current_date, current_shift_start)
                 end_datetime = datetime.combine(current_date, min(request.end_time, current_shift_end))
@@ -44,7 +45,7 @@ def assign_shifts(shift_type, shift_start_time, shift_end_time, current_date, av
                     logger.info(f"Date: {current_date.date()} - Assigned {employee.name} to {shift_type} shift")
 
             # 2. request.end_time が current_shift_end の場合
-            elif request.end_time == current_shift_end:
+            elif request.end_time == current_shift_end and (current_shift_start == shift_start_time or request.start_time <= current_shift_start):
                 # ここに処理を追加
                 start_datetime = datetime.combine(current_date, max(request.start_time, current_shift_start))
                 end_datetime = datetime.combine(current_date, current_shift_end)
@@ -107,6 +108,10 @@ def create_shifts(db: Session):
     while current_date <= end_date:
         # シフト希望を出している従業員をリストでまとめる
         available_employees = [e for e in employees if any(r.date == current_date.date() for r in e.shift_requests)]
+        
+        # 従業員リストをランダムに並び替え
+        random.shuffle(available_employees)  # 追加
+        
         logger.info(f"Date: {current_date.date()} - Available employees for A shift: {[e.name for e in available_employees]}")
 
         # A枠を埋める
