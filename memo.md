@@ -1,7 +1,7 @@
 uvicorn app.main:app --reload
 
-git tag -a v12 -m "Phase 12 completed"
-git push origin v12
+git tag -a v123 -m "Phase 123 completed"
+git push origin v123
 
 データベース構造
 +-----------------+          +---------------------+
@@ -15,5 +15,5 @@ git push origin v12
                              +---------------------+
 
 
-
+Alembicなどのマイグレーションツールを使用
 
