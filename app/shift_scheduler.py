@@ -97,53 +97,56 @@ def create_shifts(db: Session):
 
     current_date = start_date
 
-    # 各従業員のシフト希望日数を追跡する辞書
-    employee_shift_limits = {employee.id: employee.weekly_shifts for employee in employees}
-    # 各従業員のシフト希望を出している日数の残りを追跡する辞書
-    remaining_shift_requests = {employee.id: sum(1 for r in employee.shift_requests if r.date >= current_date.date()) for employee in employees}
-
     while current_date <= end_date:
-        # シフト希望を出して���る従業員をリストでまとめる
-        available_employees = [e for e in employees if any(r.date == current_date.date() for r in e.shift_requests) and employee_shift_limits[e.id] > 0]
+        # 一週間のシフト希望を処理
+        week_end_date = current_date + timedelta(days=6)
+
+        # 週の初めにremaining_shift_requestsをリセット
+        remaining_shift_requests = {
+            employee.id: sum(1 for r in employee.shift_requests if current_date.date() <= r.date <= week_end_date.date())
+            for employee in employees
+        }
+
+        # 各従業員のシフト希望日数を追跡する辞書
+        employee_shift_limits = {employee.id: employee.weekly_shifts for employee in employees}
         
-        # employee_shift_limitsとremaining_shift_requestsに基づいて並び替え
-        available_employees.sort(key=lambda e: (remaining_shift_requests[e.id] - employee_shift_limits[e.id], 
-                                                  next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
-                                                        for r in e.shift_requests if r.date == current_date.date()), 0))
-        
-        # ログ出力
-        for e in available_employees:
-            start_time = e.shift_requests[0].start_time
-            end_time = e.shift_requests[0].end_time
-            logger.info(f"従業員: {e.name}, 開始時間: {start_time}, 終了時間: {end_time}")
 
-        logger.info(f"Date: {current_date.date()} - Available employees for A shift: {[e.name for e in available_employees]}")
+        while current_date <= week_end_date and current_date <= end_date:
+            # シフト希望を出している従業員をリストでまとめる
+            available_employees = [e for e in employees if any(r.date == current_date.date() for r in e.shift_requests) and employee_shift_limits[e.id] > 0]
+            
+            # employee_shift_limitsとremaining_shift_requestsに基づいて並び替え
+            available_employees.sort(key=lambda e: (remaining_shift_requests[e.id] - employee_shift_limits[e.id], 
+                                                      next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
+                                                            for r in e.shift_requests if r.date == current_date.date()), 0))
+            
+            logger.info(f"Date: {current_date.date()} - Available employees for A shift: {[e.name for e in available_employees]}")
 
-        # A枠を埋める
-        assigned_employees = assign_shifts('A', time(15, 0), time(23, 0), current_date, available_employees, db, shifts, employee_shift_limits)
+            # A枠を埋める
+            assigned_employees = assign_shifts('A', time(15, 0), time(23, 0), current_date, available_employees, db, shifts, employee_shift_limits)
 
-        # 割り当てた従業員の「シフト希望を出している日数の残り」を減少
-        for employee in assigned_employees:
-            remaining_shift_requests[employee.id] -= 1
-
-        available_employees = [e for e in employees if any(r.date == current_date.date() for r in e.shift_requests) and e not in assigned_employees and employee_shift_limits[e.id] > 0]
-
-        # employee_shift_limitsとremaining_shift_requestsに基づいて並び替え
-        available_employees.sort(key=lambda e: (remaining_shift_requests[e.id] - employee_shift_limits[e.id], 
-                                                  next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
-                                                        for r in e.shift_requests if r.date == current_date.date()), 0))
-        
-        logger.info(f"Date: {current_date.date()} - Available employees for B shift: {[e.name for e in available_employees]}")
-
-        # B枠を埋める
-        assigned_employees = assign_shifts('B', time(15, 0), time(23, 0), current_date, available_employees, db, shifts, employee_shift_limits)
-
-        # その日にシフト希望を出していた全ての従業員の「シフト希望を出している日数の残り」を減少
-        for employee in available_employees:
-            if employee.id in remaining_shift_requests:
+            # 割り当てた従業員の「シフト希望を出している日数の残り」を減少
+            for employee in assigned_employees:
                 remaining_shift_requests[employee.id] -= 1
 
-        current_date += delta
+            available_employees = [e for e in employees if any(r.date == current_date.date() for r in e.shift_requests) and e not in assigned_employees and employee_shift_limits[e.id] > 0]
+
+            # employee_shift_limitsとremaining_shift_requestsに基づいて並び替え
+            available_employees.sort(key=lambda e: (remaining_shift_requests[e.id] - employee_shift_limits[e.id], 
+                                                      next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
+                                                            for r in e.shift_requests if r.date == current_date.date()), 0))
+            
+            logger.info(f"Date: {current_date.date()} - Available employees for B shift: {[e.name for e in available_employees]}")
+
+            # B枠を埋める
+            assigned_employees = assign_shifts('B', time(15, 0), time(23, 0), current_date, available_employees, db, shifts, employee_shift_limits)
+
+            # その日にシフト希望を出していた全ての従業員の「シフト希望を出している日数の残り」を減少
+            for employee in available_employees:
+                if employee.id in remaining_shift_requests:
+                    remaining_shift_requests[employee.id] -= 1
+
+            current_date += delta
 
     db.commit()
     return shifts
