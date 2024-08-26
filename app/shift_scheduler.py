@@ -138,9 +138,16 @@ def create_shifts(db: Session):
             available_employees = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date.date() for r in e.shift_requests)]
             
             # employee_shift_limitsとremaining_shift_requestsに基づいて並び替え
-            available_employees.sort(key=lambda e: (remaining_shift_requests[e.id] - employee_shift_limits[e.id], 
-                                                      next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
-                                                            for r in e.shift_requests if r.date == current_date.date()), 0))
+            available_employees.sort(key=lambda e: (
+                remaining_shift_requests[e.id] - employee_shift_limits[e.id], 
+                next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
+                     for r in e.shift_requests if r.date == current_date.date()), 
+                sum(
+                    (datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600
+                    for r in e.shift_requests
+                    if r.date in [date.date() for date in sorted_dates]
+                )
+            ))
             
             logger.info(f"Date: {current_date.date()} - Available employees for A shift: {[e.name for e in available_employees]}")
 
@@ -153,11 +160,16 @@ def create_shifts(db: Session):
 
             available_employees = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date.date() for r in e.shift_requests) and e not in assigned_employees]
 
-            # employee_shift_limitsとremaining_shift_requestsに基づいて並び替え
-            available_employees.sort(key=lambda e: (remaining_shift_requests[e.id] - employee_shift_limits[e.id], 
-                                                      next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
-                                                            for r in e.shift_requests if r.date == current_date.date()), 0))
-            
+            # B枠を埋める前の並び替え
+            available_employees.sort(key=lambda e: (
+                remaining_shift_requests[e.id] - employee_shift_limits[e.id],
+                sum(
+                    (datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600
+                    for r in e.shift_requests
+                    if r.date in [date.date() for date in sorted_dates]
+                )
+            ))
+
             logger.info(f"Date: {current_date.date()} - Available employees for B shift: {[e.name for e in available_employees]}")
 
             # B枠を埋める
