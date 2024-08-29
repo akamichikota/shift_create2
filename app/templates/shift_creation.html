@@ -9,8 +9,8 @@
                 <tr>
                     <th>名前</th>
                     <th>希望シフト日数</th>
-                    {% for day in range(1, 15) %}
-                        <th>8/{{ day }}</th>
+                    {% for date in shift_dates %}
+                        <th>{{ date.strftime('%Y-%m-%d') }}</th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -19,12 +19,10 @@
                     <tr id="employee-{{ employee.id }}">
                         <td>{{ employee.name }}</td>
                         <td>{{ employee.weekly_shifts }}</td>
-                        {% for day in range(1, 15) %}
+                        {% for date in shift_dates %}
                             <td>
                                 {% for shift in employee.shift_requests %}
-                                    {% set shift_year = shift.date.strftime('%Y') %}
-                                    {% set date_str = shift_year ~ "-08-" ~ "%02d" | format(day) %}
-                                    {% if shift.date.strftime('%Y-%m-%d') == date_str %}
+                                    {% if shift.date == date %}
                                         {{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }}
                                     {% endif %}
                                 {% endfor %}
@@ -49,9 +47,9 @@
                 <tr>
                     <th>名前</th>
                     <th>希望シフト日数</th>
-                    {% for day in range(1, 15) %}
-                        <th>8/{{ day }} (A枠)</th>
-                        <th>8/{{ day }} (B枠)</th>
+                    {% for date in shift_dates %}
+                        <th>{{ date.strftime('%Y-%m-%d') }} (A枠)</th>
+                        <th>{{ date.strftime('%Y-%m-%d') }} (B枠)</th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -60,17 +58,17 @@
                     <tr>
                         <td>{{ employee.name }}</td>
                         <td>{{ employee.weekly_shifts }}</td>
-                        {% for day in range(1, 15) %}
+                        {% for date in shift_dates %}
                             <td>
                                 {% for shift in shifts %}
-                                    {% if shift.employee_id == employee.id and shift.date.strftime('%Y-%m-%d') == "2024-08-" ~ "%02d" | format(day) and shift.shift_type == 'A' %}
+                                    {% if shift.employee_id == employee.id and shift.date == date and shift.shift_type == 'A' %}
                                         {{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }}
                                     {% endif %}
                                 {% endfor %}
                             </td>
                             <td>
                                 {% for shift in shifts %}
-                                    {% if shift.employee_id == employee.id and shift.date.strftime('%Y-%m-%d') == "2024-08-" ~ "%02d" | format(day) and shift.shift_type == 'B' %}
+                                    {% if shift.employee_id == employee.id and shift.date == date and shift.shift_type == 'B' %}
                                         {{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }}
                                     {% endif %}
                                 {% endfor %}
@@ -88,13 +86,13 @@
             <thead>
                 <tr>
                     <th>時間帯</th>
-                    {% for day in range(1, 15) %}
-                        <th colspan="2">8/{{ day }}</th>
+                    {% for date in shift_dates %}
+                        <th colspan="2">{{ date.strftime('%Y-%m-%d') }}</th>
                     {% endfor %}
                 </tr>
                 <tr>
                     <th></th>
-                    {% for day in range(1, 15) %}
+                    {% for date in shift_dates %}
                         <th>A枠</th>
                         <th>B枠</th>
                     {% endfor %}
@@ -104,18 +102,17 @@
                 {% for hour in range(15, 23) %}
                     <tr>
                         <td>{{ "%02d:00" | format(hour) }} - {{ "%02d:00" | format((hour + 1) % 24) }}</td>
-                        {% for day in range(1, 15) %}
-                            {% set date_str = "2024-08-" ~ "%02d" | format(day) %}
+                        {% for date in shift_dates %}
                             <td>
                                 {% for shift in shifts %}
-                                    {% if shift.date.strftime('%Y-%m-%d') == date_str and shift.shift_type == 'A' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
+                                    {% if shift.date == date and shift.shift_type == 'A' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
                                         {{ shift.employee.name }}<br>
                                     {% endif %}
                                 {% endfor %}
                             </td>
                             <td>
                                 {% for shift in shifts %}
-                                    {% if shift.date.strftime('%Y-%m-%d') == date_str and shift.shift_type == 'B' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
+                                    {% if shift.date == date and shift.shift_type == 'B' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
                                         {{ shift.employee.name }}<br>
                                     {% endif %}
                                 {% endfor %}

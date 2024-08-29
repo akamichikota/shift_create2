@@ -11,7 +11,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # モデルのインポート
 from .employee import Employee
-from .shift import ShiftRequest
+from .shift import ShiftRequest, Shift, ShiftPeriod
 
 # テーブル作成
 # Base.metadata.drop_all(bind=engine)  # 既存のテーブルを削除

@@ -2,6 +2,35 @@
 {% block content %}
     <h1>シフト作成ツール</h1>
 
+    <!-- シフト期間設定フォーム -->
+    <h2>シフト期間の設定</h2>
+    <form id="shift-period-form" method="POST">
+        <label for="start_date">開始日:</label>
+        <input type="date" id="start_date" name="start_date" required>
+        <br>
+        <label for="end_date">終了日:</label>
+        <input type="date" id="end_date" name="end_date" required>
+        <br>
+        <input type="submit" value="シフト期間を設定">
+    </form>
+
+    <!-- 現在のシフト期間表示 -->
+    <div id="current-shift-period">
+        {% if shift_period %}
+            開始日: {{ shift_period.start_date }} 終了日: {{ shift_period.end_date }}
+        {% else %}
+            シフト期間が設定されていません。
+        {% endif %}
+    </div>
+
+    <!-- シフト期間の開始日と終了日をJavaScriptに渡す -->
+    <script>
+        const shiftPeriod = {
+            startDate: "{{ shift_period.start_date }}",
+            endDate: "{{ shift_period.end_date }}"
+        };
+    </script>
+
     <h2>新しい従業員の登録</h2>
     <form id="employee-form" method="POST">
         <label for="employee_name">名前:</label>
@@ -20,8 +49,8 @@
                 <tr>
                     <th>名前</th>
                     <th>希望シフト日数</th>
-                    {% for day in range(1, 15) %}
-                        <th>8/{{ day }}</th>
+                    {% for date in shift_dates %}
+                        <th>{{ date.strftime('%Y-%m-%d') }}</th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -30,17 +59,10 @@
                     <tr id="employee-{{ employee.id }}">
                         <td>{{ employee.name }}</td>
                         <td>{{ employee.weekly_shifts }}</td>
-                        {% for day in range(1, 15) %}
+                        {% for date in shift_dates %}
                             <td>
                                 {% for shift in employee.shift_requests %}
-                                    {% set shift_year = shift.date.strftime('%Y') %}
-                                    {% set date_str = shift_year ~ "-08-" ~ "%02d" | format(day) %}
-                                    <!-- デバッグ用ログ出力 -->
-                                    <div style="display: none;">
-                                        <p>デバッグ: date_str = {{ date_str }}</p>
-                                        <p>デバッグ: shift.date = {{ shift.date.strftime('%Y-%m-%d') }}</p>
-                                    </div>
-                                    {% if shift.date.strftime('%Y-%m-%d') == date_str %}
+                                    {% if shift.date == date %}
                                         {{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }}
                                     {% endif %}
                                 {% endfor %}

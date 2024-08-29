@@ -16,13 +16,17 @@ function loadCalendar() {
     });
     calendar.appendChild(headerRow);
 
+    // シフト期間の開始日と終了日を取得
+    const startDate = new Date(shiftPeriod.startDate);
+    const endDate = new Date(shiftPeriod.endDate);
+
     // カレンダーの日付を生成
-    let date = new Date(2024, 7, 1); // 2024年8月1日
-    while (date.getMonth() === 7) {
+    let date = new Date(startDate);
+    while (date <= endDate) {
         const row = document.createElement('tr');
         for (let i = 0; i < 7; i++) {
             const cell = document.createElement('td');
-            if (date.getMonth() === 7 && date.getDay() === i) {
+            if (date.getDay() === i && date <= endDate) {
                 const dateButton = document.createElement('button');
                 dateButton.textContent = date.getDate();
                 const currentDate = formatDate(date); // 現在の日付をキャプチャ

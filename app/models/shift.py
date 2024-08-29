@@ -24,3 +24,10 @@ class Shift(Base):
     shift_type = Column(String)  # A枠かB枠かを指定するフィールドを追加
 
     employee = relationship("Employee", back_populates="shifts")
+
+class ShiftPeriod(Base):
+    __tablename__ = "shift_periods"
+
+    id = Column(Integer, primary_key=True, index=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
