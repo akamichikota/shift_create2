@@ -1,7 +1,7 @@
 uvicorn app.main:app --reload
 
-git tag -a v123456 -m "Phase 123456 completed"
-git push origin v123456
+git tag -a v1234567 -m "Phase 1234567 completed"
+git push origin v1234567
 
 データベース構造
 +-----------------+          +---------------------+

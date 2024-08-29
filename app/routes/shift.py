@@ -45,7 +45,16 @@ async def delete_shift_request(shift_request_id: int, db: Session = Depends(get_
 
 @router.post("/create_shifts")
 async def create_shifts_endpoint(db: Session = Depends(get_db)):
-    shifts = create_shifts(db)
+    # データベースからシフト期間を取得
+    shift_period = db.query(ShiftPeriod).first()
+    if not shift_period:
+        raise HTTPException(status_code=404, detail="シフト期間が設定されていません")
+
+    start_date = shift_period.start_date
+    end_date = shift_period.end_date
+
+    # シフトを作成
+    shifts = create_shifts(db, start_date, end_date)
     return RedirectResponse(url="/shift-creation", status_code=303)
 
 @router.post("/set-shift-period")
