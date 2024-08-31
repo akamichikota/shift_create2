@@ -48,8 +48,16 @@
                     <th>名前</th>
                     <th>希望シフト日数</th>
                     {% for date in shift_dates %}
-                        <th>{{ date.strftime('%Y-%m-%d') }} (A枠)</th>
-                        <th>{{ date.strftime('%Y-%m-%d') }} (B枠)</th>
+                        <th colspan="3">{{ date.strftime('%Y-%m-%d') }}</th>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    {% for date in shift_dates %}
+                        <th>A枠</th>
+                        <th>B枠</th>
+                        <th>C枠</th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -73,6 +81,13 @@
                                     {% endif %}
                                 {% endfor %}
                             </td>
+                            <td>
+                                {% for shift in shifts %}
+                                    {% if shift.employee_id == employee.id and shift.date == date and shift.shift_type == 'C' %}
+                                        {{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }}
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
                         {% endfor %}
                     </tr>
                 {% endfor %}
@@ -87,7 +102,7 @@
                 <tr>
                     <th>時間帯</th>
                     {% for date in shift_dates %}
-                        <th colspan="2">{{ date.strftime('%Y-%m-%d') }}</th>
+                        <th colspan="3">{{ date.strftime('%Y-%m-%d') }}</th>
                     {% endfor %}
                 </tr>
                 <tr>
@@ -95,6 +110,7 @@
                     {% for date in shift_dates %}
                         <th>A枠</th>
                         <th>B枠</th>
+                        <th>C枠</th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -113,6 +129,13 @@
                             <td>
                                 {% for shift in shifts %}
                                     {% if shift.date == date and shift.shift_type == 'B' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
+                                        {{ shift.employee.name }}<br>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for shift in shifts %}
+                                    {% if shift.date == date and shift.shift_type == 'C' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
                                         {{ shift.employee.name }}<br>
                                     {% endif %}
                                 {% endfor %}

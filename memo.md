@@ -1,7 +1,7 @@
 uvicorn app.main:app --reload
 
-git tag -a v1234567 -m "Phase 1234567 completed"
-git push origin v1234567
+git tag -a v12345678 -m "Phase 12345678 completed"
+git push origin v12345678
 
 データベース構造
 +-----------------+          +---------------------+
@@ -16,3 +16,9 @@ git push origin v1234567
 
 
 Alembicなどのマイグレーションツールを使用
+
+
+○これから実装すること
+C枠作って、それの時間帯を変える
+A枠B枠C枠の時間帯をフロントエンドで変更できるようにする
+熟練者と初心者のロジックを作る

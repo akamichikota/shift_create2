@@ -24,13 +24,27 @@ def assign_shifts(shift_type, shift_start_time, shift_end_time, current_date, av
                 assigned_employees, shift_hours = process_shift_request(
                     employee, request, 'first', current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
                 )
+                logger.info(f"Before update: {current_shift_start}")
                 current_shift_start = (datetime.combine(current_date, current_shift_start) + timedelta(hours=shift_hours)).time()
+                logger.info(f"After update: {current_shift_start}")
+                logger.info(f"Date: {current_date} - shift_hours: {shift_hours}, current_shift_start: {current_shift_start}, current_shift_end: {current_shift_end}")
 
             elif request.end_time == current_shift_end and (current_shift_start == shift_start_time or request.start_time <= current_shift_start):
                 assigned_employees, shift_hours = process_shift_request(
                     employee, request, 'second', current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
                 )
                 current_shift_end = (datetime.combine(current_date, current_shift_end) - timedelta(hours=shift_hours)).time()
+                logger.info(f"Date: {current_date} - shift_hours: {shift_hours}, current_shift_start: {current_shift_start}, current_shift_end: {current_shift_end}")
+            
+            elif ((current_shift_start == shift_start_time and current_shift_end == shift_end_time) and 
+                  (max(0, (min(datetime.combine(datetime.today(), request.end_time), 
+                  datetime.combine(datetime.today(), shift_end_time)) - 
+                  max(datetime.combine(datetime.today(), request.start_time), 
+                      datetime.combine(datetime.today(), shift_start_time))).total_seconds() // 3600) >= 3)):
+                assigned_employees, shift_hours = process_shift_request(
+                    employee, request, 'third', current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
+                )
+                logger.info(f"Date: {current_date} - shift_hours: {shift_hours}, current_shift_start: {current_shift_start}, current_shift_end: {current_shift_end}")
 
     if current_shift_start < shift_end_time:
         new_shift = Shift(
@@ -56,13 +70,15 @@ def process_shift_request(employee, request, time_period, current_date, current_
     current_shift_end_datetime = datetime.combine(current_date, current_shift_end)
 
     # 時間数を計算
-    requested_hours = max(0, (request_end_datetime - request_start_datetime).seconds // 3600)
+    requested_hours = min(((current_shift_end_datetime - request_start_datetime).seconds // 3600), (request_end_datetime - current_shift_start_datetime).seconds // 3600)
     shift_hours = min(requested_hours, (current_shift_end_datetime - current_shift_start_datetime).seconds // 3600, 5)
 
     if time_period == 'first':
         start_datetime = request_start_datetime
-    else:
+    elif time_period == 'second':
         start_datetime = current_shift_end_datetime - timedelta(hours=shift_hours)
+    elif time_period == 'third':
+        start_datetime = max(request_start_datetime, current_shift_start_datetime)
 
     logger.info(f"Date: {current_date} - Calculated shift hours for {employee.name}: {shift_hours}")
 
@@ -119,7 +135,8 @@ def process_week_shifts(current_date, employees, db, shifts):
         current_date = select_date_with_fewest_requests(sorted_dates, employees, employee_shift_limits)
         if not current_date:
             break
-
+        
+        # A枠の割り当て
         available_employees = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date for r in e.shift_requests)]
         available_employees.sort(key=lambda e: (
             remaining_shift_requests[e.id] - employee_shift_limits[e.id], 
@@ -133,12 +150,15 @@ def process_week_shifts(current_date, employees, db, shifts):
         ))
 
         logger.info(f"Date: {current_date} - Available employees for A shift: {[e.name for e in available_employees]}")
-        assigned_employees = assign_shifts('A', time(15, 0), time(23, 0), current_date, available_employees, db, shifts, employee_shift_limits)
-        update_remaining_requests(assigned_employees, remaining_shift_requests)
+        assigned_employees_A = assign_shifts('A', time(15, 0), time(23, 0), current_date, available_employees, db, shifts, employee_shift_limits)
+        update_remaining_requests(assigned_employees_A, remaining_shift_requests)
 
-        available_employees = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date for r in e.shift_requests) and e not in assigned_employees]
+        # B枠の割り当て
+        available_employees = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date for r in e.shift_requests) and e not in assigned_employees_A]
         available_employees.sort(key=lambda e: (
             remaining_shift_requests[e.id] - employee_shift_limits[e.id],
+            next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
+                 for r in e.shift_requests if r.date == current_date),
             sum(
                 (datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600
                 for r in e.shift_requests
@@ -147,8 +167,32 @@ def process_week_shifts(current_date, employees, db, shifts):
         ))
 
         logger.info(f"Date: {current_date} - Available employees for B shift: {[e.name for e in available_employees]}")
-        assigned_employees = assign_shifts('B', time(15, 0), time(23, 0), current_date, available_employees, db, shifts, employee_shift_limits)
-        update_remaining_requests(assigned_employees, remaining_shift_requests)
+        assigned_employees_B = assign_shifts('B', time(15, 0), time(23, 0), current_date, available_employees, db, shifts, employee_shift_limits)
+        update_remaining_requests(assigned_employees_B, remaining_shift_requests)
+
+        # C枠の割り当て
+        available_employees = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date for r in e.shift_requests) and e not in assigned_employees_A and e not in assigned_employees_B]
+        shift_start_time = time(18, 0)
+        shift_end_time = time(22, 0)
+        available_employees.sort(key=lambda e: (
+            # シフト希望時間帯との重複時間を計算
+            sum(
+                max(0, (min(datetime.combine(datetime.today(), r.end_time), datetime.combine(datetime.today(), shift_end_time)) - 
+                          max(datetime.combine(datetime.today(), r.start_time), datetime.combine(datetime.today(), shift_start_time))).total_seconds() // 3600)
+                for r in e.shift_requests
+                if r.date in [date for date in sorted_dates]
+            ),
+            remaining_shift_requests[e.id] - employee_shift_limits[e.id],
+            sum(
+                (datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600
+                for r in e.shift_requests
+                if r.date in [date for date in sorted_dates]
+            )
+        ))
+
+        logger.info(f"Date: {current_date} - Available employees for C shift: {[e.name for e in available_employees]}")
+        assigned_employees_C = assign_shifts('C', shift_start_time, shift_end_time, current_date, available_employees, db, shifts, employee_shift_limits)
+        update_remaining_requests(assigned_employees_C, remaining_shift_requests)
 
         sorted_dates.remove(current_date)
 
