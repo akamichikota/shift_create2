@@ -21,16 +21,16 @@ def assign_shifts(shift_type, shift_start_time, shift_end_time, current_date, av
 
         if request:
             if request.start_time == current_shift_start and (current_shift_end == shift_end_time or request.end_time >= current_shift_end):
-                assigned_employees = process_shift_request(
-                    employee, request, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
+                assigned_employees, shift_hours = process_shift_request(
+                    employee, request, 'first', current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
                 )
-                current_shift_start = (datetime.combine(current_date, current_shift_start) + timedelta(hours=5)).time()
+                current_shift_start = (datetime.combine(current_date, current_shift_start) + timedelta(hours=shift_hours)).time()
 
             elif request.end_time == current_shift_end and (current_shift_start == shift_start_time or request.start_time <= current_shift_start):
-                assigned_employees = process_shift_request(
-                    employee, request, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
+                assigned_employees, shift_hours = process_shift_request(
+                    employee, request, 'second', current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
                 )
-                current_shift_end = (datetime.combine(current_date, current_shift_end) - timedelta(hours=5)).time()
+                current_shift_end = (datetime.combine(current_date, current_shift_end) - timedelta(hours=shift_hours)).time()
 
     if current_shift_start < shift_end_time:
         new_shift = Shift(
@@ -46,12 +46,24 @@ def assign_shifts(shift_type, shift_start_time, shift_end_time, current_date, av
     logger.info(f"Date: {current_date} - Assigned employees for {shift_type} shift: {[e.name for e in assigned_employees]}")
     return assigned_employees
 
-def process_shift_request(employee, request, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees):
-    start_datetime = datetime.combine(current_date, current_shift_start)
-    end_datetime = datetime.combine(current_date, min(request.end_time, current_shift_end))
+def process_shift_request(employee, request, time_period, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees):
+    # request.start_time と request.end_time を datetime.datetime に変換
+    request_start_datetime = datetime.combine(current_date, request.start_time)
+    request_end_datetime = datetime.combine(current_date, request.end_time)
 
-    requested_hours = max(0, (end_datetime - start_datetime).seconds // 3600)
-    shift_hours = min(requested_hours, 5)
+    # current_shift_start と current_shift_end を datetime.datetime に変換
+    current_shift_start_datetime = datetime.combine(current_date, current_shift_start)
+    current_shift_end_datetime = datetime.combine(current_date, current_shift_end)
+
+    # 時間数を計算
+    requested_hours = max(0, (request_end_datetime - request_start_datetime).seconds // 3600)
+    shift_hours = min(requested_hours, (current_shift_end_datetime - current_shift_start_datetime).seconds // 3600, 5)
+
+    if time_period == 'first':
+        start_datetime = request_start_datetime
+    else:
+        start_datetime = current_shift_end_datetime - timedelta(hours=shift_hours)
+
     logger.info(f"Date: {current_date} - Calculated shift hours for {employee.name}: {shift_hours}")
 
     if shift_hours >= 3 and employee_shift_limits[employee.id] > 0:
@@ -67,7 +79,8 @@ def process_shift_request(employee, request, current_date, current_shift_start, 
         assigned_employees.append(employee)
         employee_shift_limits[employee.id] -= 1  # シフト希望日数を減少
         logger.info(f"Date: {current_date} - Assigned {employee.name} to {shift_type} shift")
-    return assigned_employees
+
+    return assigned_employees, shift_hours  # タプルで返却
 
 def create_shifts(db: Session, start_date: datetime, end_date: datetime):
     db.query(Shift).delete()
