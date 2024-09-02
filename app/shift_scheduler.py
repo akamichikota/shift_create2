@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from .models.employee import Employee
 from .models.shift import Shift
 from datetime import datetime, timedelta, time
+import random
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -12,23 +13,25 @@ logger = logging.getLogger(__name__)
 MIN_SHIFT_HOURS = 3  # 最低シフト時間
 MAX_SHIFT_HOURS = 5  # 最高シフト時間
 
-def assign_shifts(shift_type, employee_state, shift_start_time, shift_end_time, current_date, available_employees, db, shifts, employee_shift_limits):
+def assign_shifts(shift_type, assigned_shifts, employee_state, shift_start_time, shift_end_time, current_date, available_employees, db, shifts, employee_shift_limits):
     current_shift_start = shift_start_time
     current_shift_end = shift_end_time
     assigned_employees = []
 
     while current_shift_start != current_shift_end and available_employees:
-        employee = available_employees.pop(0)
+        employee = available_employees.pop(0) if available_employees else None  # 修正
+        if employee is None:  # 修正
+            break  # 修正
         request = next((r for r in employee.shift_requests if r.date == current_date), None)
         logger.info(f"Date: {current_date} - Processing employee: {employee.name}, Request: {request}")
 
         if request:
             if (request.start_time <= current_shift_start and current_shift_start == shift_start_time and (current_shift_end == shift_end_time or request.end_time >= current_shift_end) and 
-                (shift_type == 'A' or shift_type == 'B' or shift_type == 'C') and 
+                employee_state == 'new' and
                 (datetime.combine(current_date, request.end_time) - datetime.combine(current_date, request.start_time) >= timedelta(hours=MIN_SHIFT_HOURS)) and
                 (datetime.combine(current_date, current_shift_end) - datetime.combine(current_date, current_shift_start) >= timedelta(hours=MIN_SHIFT_HOURS))):
                 assigned_employees, shift_hours = process_shift_request(
-                    employee, employee_state, request, 'first', shift_start_time, shift_end_time, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
+                    employee, assigned_shifts, employee_state, request, 'first', shift_start_time, shift_end_time, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
                 )
                 logger.info(f"Before update: {current_shift_start}")
                 current_shift_start = (datetime.combine(current_date, current_shift_start) + timedelta(hours=shift_hours)).time()
@@ -36,22 +39,52 @@ def assign_shifts(shift_type, employee_state, shift_start_time, shift_end_time, 
                 logger.info(f"Date: {current_date} - shift_hours: {shift_hours}, current_shift_start: {current_shift_start}, current_shift_end: {current_shift_end}")
 
             elif (request.end_time >= current_shift_end and current_shift_end == shift_end_time and (current_shift_start == shift_start_time or request.start_time <= current_shift_start) and 
-                (shift_type == 'A' or shift_type == 'B' or shift_type == 'C') and 
+                employee_state == 'new' and
                 (datetime.combine(current_date, request.end_time) - datetime.combine(current_date, request.start_time) >= timedelta(hours=MIN_SHIFT_HOURS)) and
                 (datetime.combine(current_date, current_shift_end) - datetime.combine(current_date, current_shift_start) >= timedelta(hours=MIN_SHIFT_HOURS))):
                 assigned_employees, shift_hours = process_shift_request(
-                    employee, employee_state, request, 'second', shift_start_time, shift_end_time, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
+                    employee, assigned_shifts, employee_state, request, 'second', shift_start_time, shift_end_time, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
                 )
                 current_shift_end = (datetime.combine(current_date, current_shift_end) - timedelta(hours=shift_hours)).time()
                 logger.info(f"Date: {current_date} - shift_hours: {shift_hours}, current_shift_start: {current_shift_start}, current_shift_end: {current_shift_end}")
+
+
             
-
-
+            elif (request.start_time <= current_shift_start and current_shift_start == shift_start_time and (current_shift_end == shift_end_time or request.end_time >= current_shift_end) and 
+                employee_state == 'repeat' and
+                (datetime.combine(current_date, request.end_time) - datetime.combine(current_date, request.start_time) >= timedelta(hours=1)) and
+                (datetime.combine(current_date, current_shift_end) - datetime.combine(current_date, current_shift_start) >= timedelta(hours=1))):
+                assigned_employees, shift_hours = process_shift_request(
+                    employee, assigned_shifts, employee_state, request, 'first', shift_start_time, shift_end_time, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
+                )
+                logger.info(f"Before update: {current_shift_start}")
+                logger.info(f"Before update: {current_shift_end}")
+                current_shift_start = assigned_shifts[1]['shift_start'] if len(assigned_shifts) > 1 else current_shift_start
+                logger.info(f"After update: {current_shift_start}")
+                logger.info(f"After update: {current_shift_end}")
                 logger.info(f"Date: {current_date} - shift_hours: {shift_hours}, current_shift_start: {current_shift_start}, current_shift_end: {current_shift_end}")
+            
+            elif (request.end_time >= current_shift_end and current_shift_end == shift_end_time and (current_shift_start == shift_start_time or request.start_time <= current_shift_start) and 
+                employee_state == 'repeat' and
+                (datetime.combine(current_date, request.end_time) - datetime.combine(current_date, request.start_time) >= timedelta(hours=1)) and
+                (datetime.combine(current_date, current_shift_end) - datetime.combine(current_date, current_shift_start) >= timedelta(hours=1))):
+                assigned_employees, shift_hours = process_shift_request(
+                    employee, assigned_shifts, employee_state, request, 'second', shift_start_time, shift_end_time, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees
+                )
+                logger.info(f"Before update: {current_shift_start}")
+                logger.info(f"Before update: {current_shift_end}")
+                current_shift_end = assigned_shifts[0]['shift_end'] if assigned_shifts else current_shift_end
+                logger.info(f"After update: {current_shift_start}")
+                logger.info(f"After update: {current_shift_end}")
+                logger.info(f"Date: {current_date} - shift_hours: {shift_hours}, current_shift_start: {current_shift_start}, current_shift_end: {current_shift_end}")
+
+    # デフォルト従業員のIDを取得
+    default_employee = db.query(Employee).filter(Employee.name == "none").first()
+    default_employee_id = default_employee.id if default_employee else None  # 従業員が見つからない場合は None
 
     if current_shift_start < current_shift_end:
         new_shift = Shift(
-            employee_id=None,
+            employee_id=default_employee_id,  # ここを修正
             date=current_date,
             start_time=current_shift_start,
             end_time=current_shift_end,
@@ -64,7 +97,7 @@ def assign_shifts(shift_type, employee_state, shift_start_time, shift_end_time, 
     return assigned_employees
 
 
-def process_shift_request(employee, employee_state, request, time_period, start_shift_time, end_shift_time, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees):
+def process_shift_request(employee, assigned_shifts, employee_state, request, time_period, start_shift_time, end_shift_time, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees):
     # request.start_time と request.end_time を datetime.datetime に変換
     request_start_datetime = datetime.combine(current_date, request.start_time)
     request_end_datetime = datetime.combine(current_date, request.end_time)
@@ -79,8 +112,8 @@ def process_shift_request(employee, employee_state, request, time_period, start_
     
     if MAX_SHIFT_HOURS < shift_time < MAX_SHIFT_HOURS + MIN_SHIFT_HOURS:
         shift_minimum_time = shift_time - MIN_SHIFT_HOURS
-    elif MAX_SHIFT_HOURS >= (datetime.combine(datetime.today(), end_shift_time) - datetime.combine(datetime.today(), start_shift_time)).seconds / 3600:
-        shift_minimum_time = MAX_SHIFT_HOURS
+    elif (shift_time - requested_hours < MIN_SHIFT_HOURS) and requested_hours < shift_time:
+        shift_minimum_time = shift_time - MIN_SHIFT_HOURS
     else:
         shift_minimum_time = MAX_SHIFT_HOURS
     
@@ -88,14 +121,19 @@ def process_shift_request(employee, employee_state, request, time_period, start_
 
     if time_period == 'first':
         start_datetime = current_shift_start_datetime
+        start_datetime_repeat = start_shift_time
+        end_datetime_repeat = assigned_shifts[1]['shift_start'] if len(assigned_shifts) > 1 else end_shift_time  # 修正
     elif time_period == 'second':
         start_datetime = current_shift_end_datetime - timedelta(hours=shift_hours)
+        start_datetime_repeat = assigned_shifts[0]['shift_end'] if assigned_shifts else start_shift_time  # 修正
+        end_datetime_repeat = end_shift_time
 
     logger.info(f"Date: {current_date} - Calculated shift hours for {employee.name}: {shift_hours}")
 
+    logger.info(f"Date: {current_date} - 開始時間{start_datetime_repeat}　終了時間{end_datetime_repeat}")
+    logger.info(f"Date: {current_date} - 残りシフト可能回数{employee_shift_limits[employee.id]}")
 
-
-    if (shift_type == 'A' or shift_type == 'B' or shift_type == 'C') and employee_shift_limits[employee.id] > 0:
+    if employee_state == 'new' and employee_shift_limits[employee.id] > 0:
         new_shift = Shift(
             employee_id=employee.id,
             date=current_date,
@@ -107,6 +145,19 @@ def process_shift_request(employee, employee_state, request, time_period, start_
         db.add(new_shift)
         assigned_employees.append(employee)
         employee_shift_limits[employee.id] -= 1  # シフト希望日数を減少
+        logger.info(f"Date: {current_date} - Assigned {employee.name} to {shift_type} shift")
+
+    elif employee_state == 'repeat':
+        new_shift = Shift(
+            employee_id=employee.id,
+            date=current_date,
+            start_time=start_datetime_repeat,
+            end_time=end_datetime_repeat,
+            shift_type=shift_type
+        )
+        shifts.append(new_shift)
+        db.add(new_shift)
+        assigned_employees.append(employee)
         logger.info(f"Date: {current_date} - Assigned {employee.name} to {shift_type} shift")
 
     return assigned_employees, shift_hours  # タプルで返却
@@ -153,6 +204,10 @@ def process_week_shifts(current_date, employees, db, shifts):
         available_employees_A = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date for r in e.shift_requests)]
         shift_start_time_A = time(15, 0)
         shift_end_time_A = time(23, 0)
+
+        if len(available_employees_A) > 1:
+            random.shuffle(available_employees_A)
+        
         available_employees_A.sort(key=lambda e: (
             remaining_shift_requests[e.id] - employee_shift_limits[e.id], 
             next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
@@ -165,7 +220,7 @@ def process_week_shifts(current_date, employees, db, shifts):
         ))
 
         logger.info(f"Date: {current_date} - Available employees for A shift: {[e.name for e in available_employees_A]}")
-        assigned_employees_A = assign_shifts('A', 'new', shift_start_time_A, shift_end_time_A, current_date, available_employees_A, db, shifts, employee_shift_limits)
+        assigned_employees_A = assign_shifts('A', [], 'new', shift_start_time_A, shift_end_time_A, current_date, available_employees_A, db, shifts, employee_shift_limits)
         assigned_shifts_A = []
 
         for employee in assigned_employees_A:
@@ -190,8 +245,12 @@ def process_week_shifts(current_date, employees, db, shifts):
 
         # B枠の割り当て
         available_employees_B = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date for r in e.shift_requests) and e not in assigned_employees_A]
-        shift_start_time_B = time(15, 0)
-        shift_end_time_B = time(23, 0)        
+        shift_start_time_B = time(16, 0)
+        shift_end_time_B = time(22, 0)
+
+        if len(available_employees_B) > 1:
+            random.shuffle(available_employees_B)
+        
         available_employees_B.sort(key=lambda e: (
             remaining_shift_requests[e.id] - employee_shift_limits[e.id],
             next((datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600 
@@ -204,7 +263,7 @@ def process_week_shifts(current_date, employees, db, shifts):
         ))
 
         logger.info(f"Date: {current_date} - Available employees for B shift: {[e.name for e in available_employees_B]}")
-        assigned_employees_B = assign_shifts('B', 'new', shift_start_time_B, shift_end_time_B, current_date, available_employees_B, db, shifts, employee_shift_limits)
+        assigned_employees_B = assign_shifts('B', [], 'new', shift_start_time_B, shift_end_time_B, current_date, available_employees_B, db, shifts, employee_shift_limits)
         assigned_shifts_B = []
 
         for employee in assigned_employees_B:
@@ -229,8 +288,12 @@ def process_week_shifts(current_date, employees, db, shifts):
 
         # C枠の割り当て
         available_employees_C = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date for r in e.shift_requests) and e not in assigned_employees_A and e not in assigned_employees_B]
-        shift_start_time_C = time(17, 0)
-        shift_end_time_C = time(23, 0)
+        shift_start_time_C = time(18, 0)
+        shift_end_time_C = time(21, 0)
+
+        if len(available_employees_C) > 1:
+            random.shuffle(available_employees_C)
+        
         available_employees_C.sort(key=lambda e: (
             # シフト希望時間帯との重複時間を計算
             sum(
@@ -259,6 +322,10 @@ def process_week_shifts(current_date, employees, db, shifts):
         # シフトの長さでソート
         sorted_shifts = sorted(shift_lengths.items(), key=lambda x: x[1])
 
+        # A枠とB枠が割り当てられたかどうかを示すフラグ
+        a_assigned = False
+        b_assigned = False
+
         for shift_type, _ in sorted_shifts:
             if shift_type == 'A':
                 if (len(assigned_shifts_A) > 1 and
@@ -270,9 +337,9 @@ def process_week_shifts(current_date, employees, db, shifts):
                     shift_end_time_C.hour - shift_start_time_A.hour <= MAX_SHIFT_HOURS and 
                     shift_start_time_C <= assigned_shifts_A[0]['shift_end'] <= shift_end_time_C):
                     
-                    employee_shift_limits[assigned_employees_A[0].id] += 1
-                    assigned_employees_C = assign_shifts('C', 'repeat', shift_start_time_C, shift_end_time_C, current_date, assigned_employees_A, db, shifts, employee_shift_limits)
+                    assigned_employees_C = assign_shifts('C', assigned_shifts_A, 'repeat', shift_start_time_C, shift_end_time_C, current_date, assigned_employees_A, db, shifts, employee_shift_limits)
                     logger.info(f"A枠を被らせます。{assigned_shifts_A[0]['employee_name']}と{assigned_shifts_A[1]['employee_name']}を被らせます")
+                    a_assigned = True  # A枠が割り当てられたフラグを立てる
                     break  # A枠が割り当てられた場合はループを終了
 
             elif shift_type == 'B':
@@ -285,16 +352,17 @@ def process_week_shifts(current_date, employees, db, shifts):
                     shift_end_time_C.hour - shift_start_time_B.hour <= MAX_SHIFT_HOURS and 
                     shift_start_time_C <= assigned_shifts_B[0]['shift_end'] <= shift_end_time_C):
 
-                    employee_shift_limits[assigned_employees_B[0].id] += 1
-                    assigned_employees_C = assign_shifts('C', 'repeat', shift_start_time_C, shift_end_time_C, current_date, assigned_employees_B, db, shifts, employee_shift_limits)
+                    assigned_employees_C = assign_shifts('C', assigned_shifts_B, 'repeat', shift_start_time_C, shift_end_time_C, current_date, assigned_employees_B, db, shifts, employee_shift_limits)
                     logger.info(f"B枠を被らせます。{assigned_shifts_B[0]['employee_name']}と{assigned_shifts_B[1]['employee_name']}を被らせます")
+                    b_assigned = True  # B枠が割り当てられたフラグを立てる
                     break  # B枠が割り当てられた場合はループを終了
 
-        # どちらの条件にも当てはまらなかった場合の処理
-        logger.info("被らすのは無理でした")
-        logger.info(f"Date: {current_date} - Available employees for C shift: {[e.name for e in available_employees_C]}")
-        assigned_employees_C = assign_shifts('C', 'new', shift_start_time_C, shift_end_time_C, current_date, available_employees_C, db, shifts, employee_shift_limits)
-        update_remaining_requests(assigned_employees_C, remaining_shift_requests)
+        # A枠またはB枠が割り当てられなかった場合の処理
+        if not a_assigned and not b_assigned:
+            logger.info("被らすのは無理でした")
+            logger.info(f"Date: {current_date} - Available employees for C shift: {[e.name for e in available_employees_C]}")
+            assigned_employees_C = assign_shifts('C', [], 'new', shift_start_time_C, shift_end_time_C, current_date, available_employees_C, db, shifts, employee_shift_limits)
+            update_remaining_requests(assigned_employees_C, remaining_shift_requests)
 
 
 
@@ -303,6 +371,7 @@ def process_week_shifts(current_date, employees, db, shifts):
         sorted_dates.remove(current_date)
 
 def select_date_with_fewest_requests(sorted_dates, employees, employee_shift_limits):
+    random.shuffle(sorted_dates) 
     date_employee_count = {
         date: sum(1 for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == date for r in e.shift_requests))
         for date in sorted_dates
