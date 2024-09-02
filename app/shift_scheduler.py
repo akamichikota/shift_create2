@@ -76,13 +76,15 @@ def process_shift_request(employee, employee_state, request, time_period, start_
 
     # 時間数を計算
     requested_hours = min(((current_shift_end_datetime - request_start_datetime).seconds // 3600), (request_end_datetime - current_shift_start_datetime).seconds // 3600)
+    
     if MAX_SHIFT_HOURS < shift_time < MAX_SHIFT_HOURS + MIN_SHIFT_HOURS:
-        shift_time_half = shift_time - MIN_SHIFT_HOURS
+        shift_minimum_time = shift_time - MIN_SHIFT_HOURS
     elif MAX_SHIFT_HOURS >= (datetime.combine(datetime.today(), end_shift_time) - datetime.combine(datetime.today(), start_shift_time)).seconds / 3600:
-        shift_time_half = MAX_SHIFT_HOURS
+        shift_minimum_time = MAX_SHIFT_HOURS
     else:
-        shift_time_half = MAX_SHIFT_HOURS
-    shift_hours = min(requested_hours, (current_shift_end_datetime - current_shift_start_datetime).seconds // 3600, shift_time_half, MAX_SHIFT_HOURS)
+        shift_minimum_time = MAX_SHIFT_HOURS
+    
+    shift_hours = min(requested_hours, (current_shift_end_datetime - current_shift_start_datetime).seconds // 3600, shift_minimum_time, MAX_SHIFT_HOURS)
 
     if time_period == 'first':
         start_datetime = current_shift_start_datetime
@@ -248,36 +250,51 @@ def process_week_shifts(current_date, employees, db, shifts):
         assigned_employees_B = assigned_employees_B[::-1]
 
 
-        # 例: datetime.combine を使用して datetime.datetime に変換
-        if (len(assigned_shifts_A) > 1 and
-            assigned_shifts_A[0]['requested_start'] <= shift_start_time_C and 
-            assigned_shifts_A[0]['requested_end'] >= shift_end_time_C and
-            assigned_shifts_A[1]['requested_start'] <= shift_start_time_C and 
-            assigned_shifts_A[1]['requested_end'] >= shift_end_time_C and 
-            shift_end_time_A.hour - shift_start_time_C.hour <= MAX_SHIFT_HOURS and 
-            shift_end_time_C.hour - shift_start_time_A.hour <= MAX_SHIFT_HOURS and 
-            shift_start_time_C <= assigned_shifts_A[0]['shift_end'] <= shift_end_time_C):
-            
-            employee_shift_limits[assigned_employees_A[0].id] += 1
-            assigned_employees_C = assign_shifts('C', 'repeat', shift_start_time_C, shift_end_time_C, current_date, assigned_employees_A, db, shifts, employee_shift_limits)
-            logger.info(f"A枠を被らせます。{assigned_shifts_A[0]['employee_name']}と{assigned_shifts_A[1]['employee_name']}を被らせます")
-        elif (len(assigned_shifts_B) > 1 and
-            assigned_shifts_B[0]['requested_start'] <= shift_start_time_C and 
-            assigned_shifts_B[0]['requested_end'] >= shift_start_time_C and 
-            assigned_shifts_B[1]['requested_start'] <= shift_start_time_C and 
-            assigned_shifts_B[1]['requested_end'] >= shift_end_time_C and 
-            shift_end_time_B.hour - shift_start_time_C.hour <= MAX_SHIFT_HOURS and 
-            shift_end_time_C.hour - shift_start_time_B.hour <= MAX_SHIFT_HOURS and 
-            shift_start_time_C <= assigned_shifts_B[0]['shift_end'] <= shift_end_time_C):
+        # シフトの長さを計算
+        shift_lengths = {
+            'A': (shift_end_time_A.hour - shift_start_time_A.hour),
+            'B': (shift_end_time_B.hour - shift_start_time_B.hour)
+        }
 
-            employee_shift_limits[assigned_employees_B[0].id] += 1
-            assigned_employees_C = assign_shifts('C', 'repeat', shift_start_time_C, shift_end_time_C, current_date, assigned_employees_B, db, shifts, employee_shift_limits)
-            logger.info(f"B枠を被らせます。{assigned_shifts_B[0]['employee_name']}と{assigned_shifts_B[1]['employee_name']}を被らせます")
-        else:
-            logger.info("被らすのは無理でした")
-            logger.info(f"Date: {current_date} - Available employees for C shift: {[e.name for e in available_employees_C]}")
-            assigned_employees_C = assign_shifts('C', 'new', shift_start_time_C, shift_end_time_C, current_date, available_employees_C, db, shifts, employee_shift_limits)
-            update_remaining_requests(assigned_employees_C, remaining_shift_requests)
+        # シフトの長さでソート
+        sorted_shifts = sorted(shift_lengths.items(), key=lambda x: x[1])
+
+        for shift_type, _ in sorted_shifts:
+            if shift_type == 'A':
+                if (len(assigned_shifts_A) > 1 and
+                    assigned_shifts_A[0]['requested_start'] <= shift_start_time_C and 
+                    assigned_shifts_A[0]['requested_end'] >= shift_end_time_C and
+                    assigned_shifts_A[1]['requested_start'] <= shift_start_time_C and 
+                    assigned_shifts_A[1]['requested_end'] >= shift_end_time_C and 
+                    shift_end_time_A.hour - shift_start_time_C.hour <= MAX_SHIFT_HOURS and 
+                    shift_end_time_C.hour - shift_start_time_A.hour <= MAX_SHIFT_HOURS and 
+                    shift_start_time_C <= assigned_shifts_A[0]['shift_end'] <= shift_end_time_C):
+                    
+                    employee_shift_limits[assigned_employees_A[0].id] += 1
+                    assigned_employees_C = assign_shifts('C', 'repeat', shift_start_time_C, shift_end_time_C, current_date, assigned_employees_A, db, shifts, employee_shift_limits)
+                    logger.info(f"A枠を被らせます。{assigned_shifts_A[0]['employee_name']}と{assigned_shifts_A[1]['employee_name']}を被らせます")
+                    break  # A枠が割り当てられた場合はループを終了
+
+            elif shift_type == 'B':
+                if (len(assigned_shifts_B) > 1 and
+                    assigned_shifts_B[0]['requested_start'] <= shift_start_time_C and 
+                    assigned_shifts_B[0]['requested_end'] >= shift_start_time_C and 
+                    assigned_shifts_B[1]['requested_start'] <= shift_start_time_C and 
+                    assigned_shifts_B[1]['requested_end'] >= shift_end_time_C and 
+                    shift_end_time_B.hour - shift_start_time_C.hour <= MAX_SHIFT_HOURS and 
+                    shift_end_time_C.hour - shift_start_time_B.hour <= MAX_SHIFT_HOURS and 
+                    shift_start_time_C <= assigned_shifts_B[0]['shift_end'] <= shift_end_time_C):
+
+                    employee_shift_limits[assigned_employees_B[0].id] += 1
+                    assigned_employees_C = assign_shifts('C', 'repeat', shift_start_time_C, shift_end_time_C, current_date, assigned_employees_B, db, shifts, employee_shift_limits)
+                    logger.info(f"B枠を被らせます。{assigned_shifts_B[0]['employee_name']}と{assigned_shifts_B[1]['employee_name']}を被らせます")
+                    break  # B枠が割り当てられた場合はループを終了
+
+        # どちらの条件にも当てはまらなかった場合の処理
+        logger.info("被らすのは無理でした")
+        logger.info(f"Date: {current_date} - Available employees for C shift: {[e.name for e in available_employees_C]}")
+        assigned_employees_C = assign_shifts('C', 'new', shift_start_time_C, shift_end_time_C, current_date, available_employees_C, db, shifts, employee_shift_limits)
+        update_remaining_requests(assigned_employees_C, remaining_shift_requests)
 
 
 
