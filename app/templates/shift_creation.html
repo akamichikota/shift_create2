@@ -9,6 +9,7 @@
                 <tr>
                     <th>名前</th>
                     <th>希望シフト日数</th>
+                    <th>ランク</th>  <!-- ランクの列を追加 -->
                     {% for date in shift_dates %}
                         <th>{{ date.strftime('%Y-%m-%d') }}</th>
                     {% endfor %}
@@ -19,6 +20,7 @@
                     <tr id="employee-{{ employee.id }}">
                         <td>{{ employee.name }}</td>
                         <td>{{ employee.weekly_shifts }}</td>
+                        <td>{{ employee.rank }}</td>  <!-- ランクを表示 -->
                         {% for date in shift_dates %}
                             <td>
                                 {% for shift in employee.shift_requests %}
@@ -47,6 +49,7 @@
                 <tr>
                     <th>名前</th>
                     <th>希望シフト日数</th>
+                    <th>ランク</th>  <!-- ランクの列を追加 -->
                     {% for date in shift_dates %}
                         <th colspan="3">{{ date.strftime('%Y-%m-%d') }}</th>
                     {% endfor %}
@@ -54,6 +57,7 @@
                 <tr>
                     <th></th>
                     <th></th>
+                    <th></th>  <!-- ランクの列を追加 -->
                     {% for date in shift_dates %}
                         <th>A枠</th>
                         <th>B枠</th>
@@ -66,6 +70,7 @@
                     <tr>
                         <td>{{ employee.name }}</td>
                         <td>{{ employee.weekly_shifts }}</td>
+                        <td>{{ employee.rank }}</td>  <!-- ランクを表示 -->
                         {% for date in shift_dates %}
                             <td>
                                 {% for shift in shifts %}

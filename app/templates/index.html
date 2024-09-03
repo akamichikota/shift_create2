@@ -39,6 +39,13 @@
         <label for="weekly_shifts">希望シフト日数:</label>
         <input type="number" id="weekly_shifts" name="weekly_shifts" required>
         <br>
+        <label for="employee_rank">ランク:</label>
+        <select id="employee_rank" name="rank" required>
+            <option value="初級者">初級者</option>
+            <option value="中級者">中級者</option>
+            <option value="上級者">上級者</option>
+        </select>
+        <br>
         <input type="submit" value="従業員を登録">
     </form>
 
@@ -49,6 +56,7 @@
                 <tr>
                     <th>名前</th>
                     <th>希望シフト日数</th>
+                    <th>ランク</th>  <!-- ランクの列を追加 -->
                     {% for date in shift_dates %}
                         <th>{{ date.strftime('%Y-%m-%d') }}</th>
                     {% endfor %}
@@ -59,6 +67,7 @@
                     <tr id="employee-{{ employee.id }}">
                         <td>{{ employee.name }}</td>
                         <td>{{ employee.weekly_shifts }}</td>
+                        <td>{{ employee.rank }}</td>  <!-- ランクを表示 -->
                         {% for date in shift_dates %}
                             <td>
                                 {% for shift in employee.shift_requests %}
@@ -78,10 +87,10 @@
     <ul id="employee-list">
         {% for employee in employees %}
             <li id="employee-{{ employee.id }}">
-                {{ employee.name }} (週{{ employee.weekly_shifts }}シフト希望)
+                {{ employee.name }} (週{{ employee.weekly_shifts }}シフト希望, ランク: {{ employee.rank }})  <!-- ランクを表示 -->
                 <button onclick="openShiftRequestModal('{{ employee.id }}')">シフト希望追加</button>
                 <button class="delete-button" onclick="deleteEmployee('{{ employee.id }}')">削除</button>
-                <button onclick="openEditEmployeeModal('{{ employee.id }}', '{{ employee.name }}', '{{ employee.weekly_shifts }}')">編集</button>
+                <button onclick="openEditEmployeeModal('{{ employee.id }}', '{{ employee.name }}', '{{ employee.weekly_shifts }}', '{{ employee.rank }}')">編集</button>
                 <ul>
                     {% for shift in employee.shift_requests %}
                         <li id="shift-request-{{ shift.id }}">
@@ -143,6 +152,13 @@
                 <br>
                 <label for="edit_weekly_shifts">希望シフト日数:</label>
                 <input type="number" id="edit_weekly_shifts" name="weekly_shifts" required>
+                <br>
+                <label for="edit_employee_rank">ランク:</label>
+                <select id="edit_employee_rank" name="rank" required>
+                    <option value="初級者">初級者</option>
+                    <option value="中級者">中級者</option>
+                    <option value="上級者">上級者</option>
+                </select>
                 <br>
                 <input type="submit" value="更新">
             </form>

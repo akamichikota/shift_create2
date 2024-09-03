@@ -14,7 +14,7 @@ from .employee import Employee
 from .shift import ShiftRequest, Shift, ShiftPeriod
 
 # テーブル作成
-# Base.metadata.drop_all(bind=engine)  # 既存のテーブルを削除
+#Base.metadata.drop_all(bind=engine)  # 既存のテーブルを削除
 Base.metadata.create_all(bind=engine)  # 新しいテーブルを作成
 
 # デバッグ用ログ出力

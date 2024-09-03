@@ -4,16 +4,22 @@ document.addEventListener('DOMContentLoaded', function() {
     if (editEmployeeForm) {
         editEmployeeForm.addEventListener('submit', async function(event) {
             event.preventDefault();
+
             const employeeId = document.getElementById('edit_employee_id').value;
             const name = document.getElementById('edit_employee_name').value;
             const weeklyShifts = document.getElementById('edit_weekly_shifts').value;
+            const rank = document.getElementById('edit_employee_rank').value;
 
             const response = await fetch(`/employee/edit-employee/${employeeId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ name, weekly_shifts: weeklyShifts })
+                body: JSON.stringify({
+                    name: name,
+                    weekly_shifts: weeklyShifts,
+                    rank: rank
+                })
             });
 
             if (response.ok) {
