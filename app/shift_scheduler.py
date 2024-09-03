@@ -11,14 +11,16 @@ logger = logging.getLogger(__name__)
 
 # シフトの時間設定
 MIN_SHIFT_HOURS = 3  # 最低シフト時間
-MAX_SHIFT_HOURS = 5  # 最高シフト時間
+MAX_SHIFT_HOURS = 6  # 最高シフト時間
 
 SHIFT_A_START = time(15, 0)  # Aシフトの開始時間
 SHIFT_A_END = time(23, 0)    # Aシフトの終了時間
 SHIFT_B_START = time(15, 0)  # Bシフトの開始時間
 SHIFT_B_END = time(23, 0)    # Bシフトの終了時間
-SHIFT_C_START = time(18, 0)  # Cシフトの開始時間
-SHIFT_C_END = time(21, 0)    # Cシフトの終了時間
+SHIFT_C_START = time(17, 0)  # Cシフトの開始時間
+SHIFT_C_END = time(22, 0)    # Cシフトの終了時間
+SHIFT_D_START = time(18, 0)  # Dシフトの開始時間
+SHIFT_D_END = time(21, 0)    # Dシフトの終了時間
 
 def assign_shifts(shift_type, assigned_shifts, employee_state, shift_start_time, shift_end_time, current_date, available_employees, db, shifts, employee_shift_limits):
     current_shift_start = shift_start_time
@@ -88,23 +90,15 @@ def assign_shifts(shift_type, assigned_shifts, employee_state, shift_start_time,
                 logger.info(f"After update: {current_shift_end}")
                 logger.info(f"Date: {current_date} - shift_hours: {shift_hours}, current_shift_start: {current_shift_start}, current_shift_end: {current_shift_end}")
 
-    # デフォルト従業員のIDを取得
-    default_employee = db.query(Employee).filter(Employee.name == "none").first()
-    default_employee_id = default_employee.id if default_employee else None  # 従業員が見つからない場合は None
-
     if current_shift_start < current_shift_end:
-        new_shift = Shift(
-            employee_id=default_employee_id,  # ここを修正
-            date=current_date,
-            start_time=current_shift_start,
-            end_time=current_shift_end,
-            shift_type=shift_type
-        )
-        shifts.append(new_shift)
-        db.add(new_shift)
+        new_shift = create_shift_default(db, current_date, current_shift_start, current_shift_end, shift_type)
+        if new_shift:
+            shifts.append(new_shift)
+            db.add(new_shift)
 
     logger.info(f"Date: {current_date} - Assigned employees for {shift_type} shift: {[e.name for e in assigned_employees]}")
     return assigned_employees
+
 
 
 def process_shift_request(employee, assigned_shifts, employee_state, request, time_period, start_shift_time, end_shift_time, current_date, current_shift_start, current_shift_end, shift_type, db, shifts, employee_shift_limits, assigned_employees):
@@ -217,6 +211,11 @@ def process_week_shifts(current_date, employees, db, shifts):
 
     employee_shift_limits = {employee.id: employee.weekly_shifts for employee in employees}
 
+    assigned_employees_A = []  # A枠の初期化
+    assigned_employees_B = []  # B枠の初期化
+    assigned_employees_C = []  # C枠の初期化
+    assigned_employees_D = []  # D枠の初期化
+
     while sorted_dates:
         current_date = select_date_with_fewest_requests(sorted_dates, employees, employee_shift_limits)
         if not current_date:
@@ -239,24 +238,9 @@ def process_week_shifts(current_date, employees, db, shifts):
             )
         ))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         logger.info(f"Date: {current_date} - Available employees for A shift: {[e.name for e in available_employees_A]}")
         assigned_employees_A = assign_shifts('A', [], 'new', SHIFT_A_START, SHIFT_A_END, current_date, available_employees_A, db, shifts, employee_shift_limits)
+        assigned_employees_A = assigned_employees_A[::-1]
         assigned_shifts_A = []
 
         for employee in assigned_employees_A:
@@ -298,6 +282,7 @@ def process_week_shifts(current_date, employees, db, shifts):
 
         logger.info(f"Date: {current_date} - Available employees for B shift: {[e.name for e in available_employees_B]}")
         assigned_employees_B = assign_shifts('B', [], 'new', SHIFT_B_START, SHIFT_B_END, current_date, available_employees_B, db, shifts, employee_shift_limits)
+        assigned_employees_B = assigned_employees_B[::-1]
         assigned_shifts_B = []
 
         for employee in assigned_employees_B:
@@ -341,8 +326,6 @@ def process_week_shifts(current_date, employees, db, shifts):
                 if r.date in [date for date in sorted_dates]
             )
         ))
-        assigned_employees_A = assigned_employees_A[::-1]
-        assigned_employees_B = assigned_employees_B[::-1]
 
 
         # シフトの長さを計算
@@ -353,7 +336,6 @@ def process_week_shifts(current_date, employees, db, shifts):
 
         # シフトの長さでソート
         sorted_shifts = sorted(shift_lengths.items(), key=lambda x: x[1])
-        logger.info(f"これだ！！！！{assigned_shifts_A[0]['employee_name']}開始{assigned_shifts_A[0]['shift_start']}と　終了{assigned_shifts_A[0]['shift_end']}")
 
         # A枠とB枠が割り当てられたかどうかを示すフラグ
         a_assigned = False
@@ -361,7 +343,7 @@ def process_week_shifts(current_date, employees, db, shifts):
 
         for shift_type, _ in sorted_shifts:
             if shift_type == 'A':
-                if (len(assigned_shifts_A) > 1 and
+                if (len(assigned_shifts_A) >= 2 and
                     assigned_shifts_A[0]['requested_start'] <= SHIFT_C_START and 
                     assigned_shifts_A[0]['requested_end'] >= SHIFT_C_END and
                     assigned_shifts_A[1]['requested_start'] <= SHIFT_C_START and 
@@ -373,29 +355,38 @@ def process_week_shifts(current_date, employees, db, shifts):
                     
                     employee_shift_limits[assigned_employees_A[0].id] += 1
                     employee_shift_limits[assigned_employees_A[1].id] += 1
-                    assigned_employees_C = assign_shifts('C', assigned_shifts_A, 'repeat', SHIFT_C_START, SHIFT_C_END, current_date, assigned_employees_A.copy(), db, shifts, employee_shift_limits)
+                    assigned_employees_C = assign_shifts('C', assigned_shifts_A, 'repeat', SHIFT_C_START, SHIFT_C_END, current_date, assigned_employees_A.copy(), db, shifts, employee_shift_limits)                  
+                    assigned_employees_C = assigned_employees_C[::-1]
                     employee_shift_limits[assigned_employees_A[0].id] -= 1
                     employee_shift_limits[assigned_employees_A[1].id] -= 1
+
+                    shift_type_C = 'repeat'
+                    applied_shift_type_C = 'A'
 
                     logger.info(f"A枠を被らせました。{assigned_shifts_A[0]['employee_name']}と{assigned_shifts_A[1]['employee_name']}を被らせます")
                     a_assigned = True  # A枠が割り当てられたフラグを立てる
                     break  # A枠が割り当てられた場合はループを終了
 
             elif shift_type == 'B':
-                if (len(assigned_shifts_B) > 1 and
+                if (len(assigned_shifts_B) >= 2 and
                     assigned_shifts_B[0]['requested_start'] <= SHIFT_C_START and 
                     assigned_shifts_B[0]['requested_end'] >= SHIFT_C_START and 
                     assigned_shifts_B[1]['requested_start'] <= SHIFT_C_START and 
                     assigned_shifts_B[1]['requested_end'] >= SHIFT_C_END and 
                     SHIFT_B_END.hour - SHIFT_C_START.hour <= MAX_SHIFT_HOURS and 
                     SHIFT_C_END.hour - SHIFT_B_START.hour <= MAX_SHIFT_HOURS and 
-                    SHIFT_C_START <= assigned_shifts_B[0]['shift_end'] <= SHIFT_C_END):
+                    (SHIFT_C_START <= assigned_shifts_B[0]['shift_end'] <= SHIFT_C_END or
+                     SHIFT_C_START <= assigned_shifts_B[1]['shift_end'] <= SHIFT_C_END)):
 
                     employee_shift_limits[assigned_employees_B[0].id] += 1
                     employee_shift_limits[assigned_employees_B[1].id] += 1
                     assigned_employees_C = assign_shifts('C', assigned_shifts_B, 'repeat', SHIFT_C_START, SHIFT_C_END, current_date, assigned_employees_B.copy(), db, shifts, employee_shift_limits)
+                    assigned_employees_C = assigned_employees_C[::-1]
                     employee_shift_limits[assigned_employees_B[0].id] -= 1
                     employee_shift_limits[assigned_employees_B[1].id] -= 1
+
+                    shift_type_C = 'repeat'
+                    applied_shift_type_C = 'B'
 
                     logger.info(f"B枠を被らせました。{assigned_shifts_B[0]['employee_name']}と{assigned_shifts_B[1]['employee_name']}を被らせます")
                     b_assigned = True  # B枠が割り当てられたフラグを立てる
@@ -407,9 +398,16 @@ def process_week_shifts(current_date, employees, db, shifts):
             if available_employees_C:
                 logger.info(f"Date: {current_date} - Available employees for C shift: {[e.name for e in available_employees_C]}")
                 assigned_employees_C = assign_shifts('C', [], 'new', SHIFT_C_START, SHIFT_C_END, current_date, available_employees_C, db, shifts, employee_shift_limits)
+                assigned_employees_C = assigned_employees_C[::-1]
+                shift_type_C = 'new'
+                applied_shift_type_C = 'C'
                 update_remaining_requests(assigned_employees_C, remaining_shift_requests)
             else:
                 logger.info(f"Date: {current_date} - No available employees for C shift")
+                new_shift = create_shift_default(db, current_date, SHIFT_C_START, SHIFT_C_END, 'C')
+                if new_shift:
+                    shifts.append(new_shift)
+                    db.add(new_shift)
                 assigned_employees_C = []
 
         
@@ -428,8 +426,192 @@ def process_week_shifts(current_date, employees, db, shifts):
                     'shift_start': assigned_shift.start_time,  # 実際の開始時間
                     'shift_end': assigned_shift.end_time,      # 実際の終了時間
                     'requested_start': request.start_time if request else None,  # シフト希望開始時間
-                    'requested_end': request.end_time if request else None       # シフト希望終了時間
+                    'requested_end': request.end_time if request else None,       # シフト希望終了時間
+                    'shift_type': shift_type_C,
+                    'applied_shift_type': applied_shift_type_C
                 })
+
+
+
+
+
+
+        # D枠の割り当て
+        available_employees_D = [e for e in employees if employee_shift_limits[e.id] > 0 and any(r.date == current_date for r in e.shift_requests) and e not in assigned_employees_A and e not in assigned_employees_B and e not in assigned_employees_C]
+
+        if len(available_employees_D) > 1:
+            random.shuffle(available_employees_D)
+        
+        available_employees_D.sort(key=lambda e: (
+            # シフト希望時間帯との重複時間を計算
+            sum(
+                max(0, (min(datetime.combine(datetime.today(), r.end_time), datetime.combine(datetime.today(), SHIFT_D_END)) - 
+                          max(datetime.combine(datetime.today(), r.start_time), datetime.combine(datetime.today(), SHIFT_D_START))).total_seconds() // 3600)
+                for r in e.shift_requests
+                if r.date in [date for date in sorted_dates]
+            ),
+            remaining_shift_requests[e.id] - employee_shift_limits[e.id],
+            sum(
+                (datetime.combine(datetime.today(), r.end_time) - datetime.combine(datetime.today(), r.start_time)).seconds // 3600
+                for r in e.shift_requests
+                if r.date in [date for date in sorted_dates]
+            )
+        ))
+
+
+        # シフトの長さを計算
+        shift_lengths = {
+            'A': (SHIFT_A_END.hour - SHIFT_A_START.hour),
+            'B': (SHIFT_B_END.hour - SHIFT_B_START.hour),
+            'C': (SHIFT_C_END.hour - SHIFT_C_START.hour)
+        }
+
+        # シフトの長さでソート
+        sorted_shifts = sorted(shift_lengths.items(), key=lambda x: x[1])
+
+        # A枠とB枠とC枠が割り当てられたかどうかを示すフラグ
+        a_assigned = False
+        b_assigned = False
+        c_assigned = False
+
+        for shift_type, _ in sorted_shifts:
+            if shift_type == 'A':
+                if (len(assigned_shifts_A) >= 2 and
+                    (len(assigned_shifts_C) == 0 or (len(assigned_shifts_C) >= 1 and assigned_shifts_C[0]['applied_shift_type'] != 'A')) and
+                    assigned_shifts_A[0]['requested_start'] <= SHIFT_D_START and 
+                    assigned_shifts_A[0]['requested_end'] >= SHIFT_D_END and
+                    assigned_shifts_A[1]['requested_start'] <= SHIFT_D_START and 
+                    assigned_shifts_A[1]['requested_end'] >= SHIFT_D_END and 
+                    SHIFT_A_END.hour - SHIFT_D_START.hour <= MAX_SHIFT_HOURS and 
+                    SHIFT_D_END.hour - SHIFT_A_START.hour <= MAX_SHIFT_HOURS and 
+                    (SHIFT_D_START <= assigned_shifts_A[0]['shift_end'] <= SHIFT_D_END or
+                     SHIFT_D_START <= assigned_shifts_A[1]['shift_end'] <= SHIFT_D_END)):
+                    
+                    
+                    
+                    employee_shift_limits[assigned_employees_A[0].id] += 1
+                    employee_shift_limits[assigned_employees_A[1].id] += 1
+                    assigned_employees_D = assign_shifts('D', assigned_shifts_A, 'repeat', SHIFT_D_START, SHIFT_D_END, current_date, assigned_employees_A.copy(), db, shifts, employee_shift_limits)
+                    assigned_employees_D = assigned_employees_D[::-1]
+                    employee_shift_limits[assigned_employees_A[0].id] -= 1
+                    employee_shift_limits[assigned_employees_A[1].id] -= 1
+
+                    shift_type_D = 'repeat'
+                    applied_shift_type_D = 'A'
+
+                    logger.info(f"A枠を被らせました。{assigned_shifts_A[0]['employee_name']}と{assigned_shifts_A[1]['employee_name']}を被らせます")
+                    a_assigned = True  # A枠が割り当てられたフラグを立てる
+                    break  # A枠が割り当てられた場合はループを終了
+
+            elif shift_type == 'B':
+                if (len(assigned_shifts_B) >= 2 and
+                    (len(assigned_shifts_C) == 0 or (len(assigned_shifts_C) >= 1 and assigned_shifts_C[0]['applied_shift_type'] != 'B')) and
+                    assigned_shifts_C[0]['applied_shift_type'] != 'B' and
+                    assigned_shifts_B[0]['requested_start'] <= SHIFT_D_START and 
+                    assigned_shifts_B[0]['requested_end'] >= SHIFT_D_START and 
+                    assigned_shifts_B[1]['requested_start'] <= SHIFT_D_START and 
+                    assigned_shifts_B[1]['requested_end'] >= SHIFT_D_END and 
+                    SHIFT_B_END.hour - SHIFT_D_START.hour <= MAX_SHIFT_HOURS and 
+                    SHIFT_D_END.hour - SHIFT_B_START.hour <= MAX_SHIFT_HOURS and 
+                    (SHIFT_D_START <= assigned_shifts_B[0]['shift_end'] <= SHIFT_D_END or 
+                    SHIFT_D_START <= assigned_shifts_B[1]['shift_end'] <= SHIFT_D_END)):
+
+                    logger.info(f"シフトタイプ：{assigned_shifts_C[0]['shift_type']}, 適用先：{assigned_shifts_C[0]['applied_shift_type']}")
+
+                    employee_shift_limits[assigned_employees_B[0].id] += 1
+                    employee_shift_limits[assigned_employees_B[1].id] += 1
+                    assigned_employees_D = assign_shifts('D', assigned_shifts_B, 'repeat', SHIFT_D_START, SHIFT_D_END, current_date, assigned_employees_B.copy(), db, shifts, employee_shift_limits)
+                    assigned_employees_D = assigned_employees_D[::-1]
+                    employee_shift_limits[assigned_employees_B[0].id] -= 1
+                    employee_shift_limits[assigned_employees_B[1].id] -= 1
+
+                    shift_type_D = 'repeat'
+                    applied_shift_type_D = 'B'
+
+                    logger.info(f"B枠を被らせました。{assigned_shifts_B[0]['employee_name']}と{assigned_shifts_B[1]['employee_name']}を被らせます")
+                    b_assigned = True  # B枠が割り当てられたフラグを立てる
+                    break  # B枠が割り当てられた場合はループを終了
+            
+            elif shift_type == 'C':
+                if (len(assigned_shifts_C) >= 2 and
+                    assigned_shifts_C[0]['shift_type'] == 'new' and 
+                    assigned_shifts_C[0]['requested_start'] <= SHIFT_D_START and 
+                    assigned_shifts_C[0]['requested_end'] >= SHIFT_D_END and
+                    assigned_shifts_C[1]['requested_start'] <= SHIFT_D_START and 
+                    assigned_shifts_C[1]['requested_end'] >= SHIFT_D_END and 
+                    SHIFT_C_END.hour - SHIFT_D_START.hour <= MAX_SHIFT_HOURS and 
+                    SHIFT_D_END.hour - SHIFT_C_START.hour <= MAX_SHIFT_HOURS and 
+                    (SHIFT_D_START <= assigned_shifts_C[0]['shift_end'] <= SHIFT_D_END or
+                     SHIFT_D_START <= assigned_shifts_C[1]['shift_end'] <= SHIFT_D_END)):
+
+                    logger.info(f"シフトタイプ：{assigned_shifts_C[0]['shift_type']}, 適用先：{assigned_shifts_C[0]['applied_shift_type']}") 
+                    
+                    employee_shift_limits[assigned_employees_C[0].id] += 1
+                    employee_shift_limits[assigned_employees_C[1].id] += 1
+                    assigned_employees_D = assign_shifts('D', assigned_shifts_C, 'repeat', SHIFT_D_START, SHIFT_D_END, current_date, assigned_employees_C.copy(), db, shifts, employee_shift_limits)
+                    assigned_employees_D = assigned_employees_D[::-1]
+                    employee_shift_limits[assigned_employees_C[0].id] -= 1
+                    employee_shift_limits[assigned_employees_C[1].id] -= 1
+
+                    shift_type_D = 'repeat'
+                    applied_shift_type_D = 'C'
+
+                    logger.info(f"C枠を被らせました。{assigned_shifts_C[0]['employee_name']}と{assigned_shifts_C[1]['employee_name']}を被らせます")
+                    c_assigned = True  # C枠が割り当てられたフラグを立てる
+                    break  # C枠が割り当てられた場合はループを終了
+                    
+        # A枠またはB枠が割り当てられなかった場合の処理
+        if not a_assigned and not b_assigned and not c_assigned:
+            logger.info("被らすのは無理でした。")
+            if available_employees_D:
+                logger.info(f"Date: {current_date} - Available employees for D shift: {[e.name for e in available_employees_D]}")
+                assigned_employees_D = assign_shifts('D', [], 'new', SHIFT_D_START, SHIFT_D_END, current_date, available_employees_D, db, shifts, employee_shift_limits)
+                assigned_employees_D = assigned_employees_D[::-1]
+                shift_type_D = 'new'
+                applied_shift_type_D = 'D'
+                update_remaining_requests(assigned_employees_D, remaining_shift_requests)
+            else:
+                logger.info(f"Date: {current_date} - No available employees for D shift")
+                new_shift = create_shift_default(db, current_date, SHIFT_D_START, SHIFT_D_END, 'D')
+                if new_shift:
+                    shifts.append(new_shift)
+                    db.add(new_shift)                
+                assigned_employees_D = []
+
+        
+        assigned_shifts_D = []
+
+        for employee in assigned_employees_D:
+            # 各従業員のシフトリクエストを取得
+            request = next((r for r in employee.shift_requests if r.date == current_date), None)
+            
+            # 実際に割り当てられたシフトの開始時間と終了時間を取得
+            assigned_shift = next((s for s in shifts if s.employee_id == employee.id and s.date == current_date), None)
+            
+            if assigned_shift:
+                assigned_shifts_D.append({
+                    'employee_name': employee.name,
+                    'shift_start': assigned_shift.start_time,  # 実際の開始時間
+                    'shift_end': assigned_shift.end_time,      # 実際の終了時間
+                    'requested_start': request.start_time if request else None,  # シフト希望開始時間
+                    'requested_end': request.end_time if request else None,       # シフト希望終了時間
+                    'shift_type': shift_type_D,
+                    'applied_shift_type': applied_shift_type_D
+                })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -449,3 +631,20 @@ def select_date_with_fewest_requests(sorted_dates, employees, employee_shift_lim
 def update_remaining_requests(assigned_employees, remaining_shift_requests):
     for employee in assigned_employees:
         remaining_shift_requests[employee.id] -= 1
+
+def create_shift_default(db, current_date, current_shift_start, current_shift_end, shift_type):
+    # デフォルト従業員のIDを取得
+    default_employee = db.query(Employee).filter(Employee.name == "none").first()
+    default_employee_id = default_employee.id if default_employee else None  # 従業員が見つからない場合は None
+
+    if current_shift_start < current_shift_end:
+        new_shift = Shift(
+            employee_id=default_employee_id,  # ここを修正
+            date=current_date,
+            start_time=current_shift_start,
+            end_time=current_shift_end,
+            shift_type=shift_type
+        )
+        return new_shift  # 新しいシフトを返す
+
+    return None  # シフトが作成されなかった場合は None を返す

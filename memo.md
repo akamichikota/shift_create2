@@ -1,7 +1,7 @@
 uvicorn app.main:app --reload
 
-git tag -a vA123 -m "Phase A123 completed"
-git push origin vA123
+git tag -a vA1234 -m "Phase A1234 completed"
+git push origin vA1234
 
 
 
