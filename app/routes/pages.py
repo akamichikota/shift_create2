@@ -27,7 +27,7 @@ async def read_root(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "employees": employees,
         "shift_dates": shift_dates,
-        "shift_period": shift_period
+        "shift_period": shift_period,
     })
 
 @router.get("/shift-creation", response_class=HTMLResponse)

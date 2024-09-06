@@ -6,10 +6,11 @@ function openShiftRequestModal(employeeId) {
     loadCalendar();
 }
 
-function openEditEmployeeModal(employeeId, name, weeklyShifts) {
+function openEditEmployeeModal(employeeId, name, weeklyShifts, rank) {
     document.getElementById('edit_employee_id').value = employeeId;
     document.getElementById('edit_employee_name').value = name;
     document.getElementById('edit_weekly_shifts').value = weeklyShifts;
+    document.getElementById('edit_employee_rank').value = rank;
     document.getElementById('editEmployeeModal').style.display = "block";
 }
 

@@ -87,7 +87,7 @@
     <ul id="employee-list">
         {% for employee in employees %}
             <li id="employee-{{ employee.id }}">
-                {{ employee.name }} (週{{ employee.weekly_shifts }}シフト希望, ランク: {{ employee.rank }})  <!-- ランクを表示 -->
+                {{ employee.name }} (週{{ employee.weekly_shifts }}シフト希望, ランク: {{ employee.rank }})
                 <button onclick="openShiftRequestModal('{{ employee.id }}')">シフト希望追加</button>
                 <button class="delete-button" onclick="deleteEmployee('{{ employee.id }}')">削除</button>
                 <button onclick="openEditEmployeeModal('{{ employee.id }}', '{{ employee.name }}', '{{ employee.weekly_shifts }}', '{{ employee.rank }}')">編集</button>

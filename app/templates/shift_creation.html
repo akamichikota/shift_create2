@@ -42,6 +42,69 @@
         </form>
     </div>
 
+
+
+    <h2>シフト作成結果（時間帯別）</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>時間帯</th>
+                    {% for date in shift_dates %}
+                        <th colspan="4">{{ date.strftime('%Y-%m-%d') }}</th>  <!-- D枠の列を追加 -->
+                    {% endfor %}
+                </tr>
+                <tr>
+                    <th></th>
+                    {% for date in shift_dates %}
+                        <th>A枠</th>
+                        <th>B枠</th>
+                        <th>C枠</th>
+                        <th>D枠</th>  <!-- D枠の列を追加 -->
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for hour in range(15, 23) %}
+                    <tr>
+                        <td>{{ "%02d:00" | format(hour) }} - {{ "%02d:00" | format((hour + 1) % 24) }}</td>
+                        {% for date in shift_dates %}
+                            <td>
+                                {% for shift in shifts %}
+                                    {% if shift.date == date and shift.shift_type == 'A' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
+                                        {{ shift.employee.name }}<br>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for shift in shifts %}
+                                    {% if shift.date == date and shift.shift_type == 'B' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
+                                        {{ shift.employee.name }}<br>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for shift in shifts %}
+                                    {% if shift.date == date and shift.shift_type == 'C' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
+                                        {{ shift.employee.name }}<br>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for shift in shifts %}
+                                    {% if shift.date == date and shift.shift_type == 'D' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}  <!-- D枠の条件を追加 -->
+                                        {{ shift.employee.name }}<br>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+
     <h2>シフト作成結果</h2>
     <div class="table-container">
         <table>
@@ -98,66 +161,6 @@
                                 {% for shift in shifts %}
                                     {% if shift.employee_id == employee.id and shift.date == date and shift.shift_type == 'D' %}  <!-- D枠の条件を追加 -->
                                         {{ shift.start_time.strftime('%H:%M') }} - {{ shift.end_time.strftime('%H:%M') }}
-                                    {% endif %}
-                                {% endfor %}
-                            </td>
-                        {% endfor %}
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <h2>シフト作成結果（時間帯別）</h2>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>時間帯</th>
-                    {% for date in shift_dates %}
-                        <th colspan="4">{{ date.strftime('%Y-%m-%d') }}</th>  <!-- D枠の列を追加 -->
-                    {% endfor %}
-                </tr>
-                <tr>
-                    <th></th>
-                    {% for date in shift_dates %}
-                        <th>A枠</th>
-                        <th>B枠</th>
-                        <th>C枠</th>
-                        <th>D枠</th>  <!-- D枠の列を追加 -->
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for hour in range(15, 23) %}
-                    <tr>
-                        <td>{{ "%02d:00" | format(hour) }} - {{ "%02d:00" | format((hour + 1) % 24) }}</td>
-                        {% for date in shift_dates %}
-                            <td>
-                                {% for shift in shifts %}
-                                    {% if shift.date == date and shift.shift_type == 'A' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
-                                        {{ shift.employee.name }}<br>
-                                    {% endif %}
-                                {% endfor %}
-                            </td>
-                            <td>
-                                {% for shift in shifts %}
-                                    {% if shift.date == date and shift.shift_type == 'B' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
-                                        {{ shift.employee.name }}<br>
-                                    {% endif %}
-                                {% endfor %}
-                            </td>
-                            <td>
-                                {% for shift in shifts %}
-                                    {% if shift.date == date and shift.shift_type == 'C' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}
-                                        {{ shift.employee.name }}<br>
-                                    {% endif %}
-                                {% endfor %}
-                            </td>
-                            <td>
-                                {% for shift in shifts %}
-                                    {% if shift.date == date and shift.shift_type == 'D' and shift.start_time <= time(hour, 0) and shift.end_time > time(hour, 0) %}  <!-- D枠の条件を追加 -->
-                                        {{ shift.employee.name }}<br>
                                     {% endif %}
                                 {% endfor %}
                             </td>
